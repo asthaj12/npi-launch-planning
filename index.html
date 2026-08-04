@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>NPI Launch Planning &amp; EOL Management — Demo</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+<style>
+:root{--s0:#f9f9f7;--s1:#fcfcfb;--ink:#0b0b0b;--sec:#52514e;--muted:#898781;--grid:#e1e0d9;--border:rgba(11,11,11,.10);--blue:#6366f1;--orange:#eb6834;--aqua:#1baf7a;--yellow:#eda100;--magenta:#e87ba4;--good:#0ca30c;--warn:#fab219;--crit:#d03b3b;--ind:#6366f1;--purple:#a855f7;}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;font-size:13px;background:var(--s0);color:var(--ink);}
+.demo-banner{background:#fffbeb;border-bottom:2px solid #f59e0b;padding:8px 20px;font-size:12px;font-weight:600;color:#92400e;display:flex;align-items:center;}
+.demo-banner .rs{margin-left:auto;font-weight:400;font-size:11px;color:#78350f;}
+.tab-nav{background:var(--s1);border-bottom:1px solid var(--grid);padding:0 20px;display:flex;gap:2px;}
+.tab-btn{padding:10px 16px;border:none;background:none;font-size:12px;font-weight:500;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:color .15s,border-color .15s;}
+.tab-btn:hover{color:var(--sec);} .tab-btn.active{color:var(--ind);border-bottom-color:var(--ind);font-weight:600;}
+main{padding:20px;max-width:1300px;margin:0 auto;}
+.tab-panel{display:none;} .tab-panel.active{display:block;}
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px;}
+.kpi{background:var(--s1);border:1px solid var(--border);border-radius:8px;padding:14px 16px;}
+.kpi .lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;}
+.kpi .val{font-size:22px;font-weight:700;margin:4px 0 2px;}
+.kpi .delta{font-size:11px;font-weight:600;}
+.kpi.bl{border-left:3px solid var(--ind);} .kpi.or{border-left:3px solid var(--orange);} .kpi.gd{border-left:3px solid var(--good);} .kpi.rd{border-left:3px solid var(--crit);} .kpi.yw{border-left:3px solid var(--warn);}
+.chart-grid{display:grid;gap:16px;} .cols2{grid-template-columns:1fr 1fr;}
+.card{background:var(--s1);border:1px solid var(--border);border-radius:8px;padding:16px;}
+.card .ttl{font-size:12px;font-weight:700;margin-bottom:3px;} .card .sub2{font-size:11px;color:var(--muted);margin-bottom:12px;}
+.full{grid-column:1/-1;} canvas{display:block;}
+table{width:100%;border-collapse:collapse;font-size:12px;}
+th{padding:7px 10px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--grid);}
+td{padding:7px 10px;border-bottom:1px solid var(--grid);color:var(--sec);}
+tr:last-child td{border-bottom:none;} tr:hover td{background:#f4f3f0;}
+footer{margin-top:32px;padding:16px 20px;border-top:1px solid var(--grid);font-size:11px;color:var(--muted);display:flex;gap:16px;}
+footer a{color:var(--ind);text-decoration:none;} footer a:hover{text-decoration:underline;}
+
+/* ── Shared nav ─── */
+.snav{position:sticky;top:0;z-index:200;background:rgba(255,255,255,.96);backdrop-filter:blur(12px);border-bottom:1px solid #e2e8f0;padding:0 20px;display:flex;align-items:center;gap:6px;height:48px;}
+.snav-brand{font-size:13px;font-weight:800;color:#0f172a;text-decoration:none;margin-right:16px;white-space:nowrap;}
+.snav-brand span{color:#6366f1;}
+.snav-items{display:flex;align-items:center;gap:2px;flex:1;}
+.snav-link{padding:5px 10px;border-radius:5px;font-size:12px;font-weight:500;color:#475569;text-decoration:none;white-space:nowrap;transition:background .12s,color .12s;}
+.snav-link:hover{background:rgba(99,102,241,.07);color:#0f172a;}
+.sndrop{position:relative;}
+.sndrop-toggle{display:flex;align-items:center;gap:4px;padding:5px 10px;border-radius:5px;font-size:12px;font-weight:500;color:#475569;cursor:pointer;user-select:none;white-space:nowrap;transition:background .12s,color .12s;}
+.sndrop-toggle:hover{background:rgba(99,102,241,.07);color:#0f172a;}
+.sndrop-toggle svg{width:9px;height:9px;transition:transform .18s;}
+.sndrop:hover .sndrop-toggle svg{transform:rotate(180deg);}
+.sndrop-menu{position:absolute;top:100%;padding-top:6px;margin-top:-6px;left:0;background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:5px;min-width:220px;box-shadow:0 12px 40px rgba(0,0,0,.14);opacity:0;visibility:hidden;pointer-events:none;transform:translateY(-4px);transition:opacity .15s,transform .15s,visibility .15s;}
+.sndrop:hover .sndrop-menu{opacity:1;visibility:visible;pointer-events:auto;transform:translateY(0);}
+.sndrop-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:6px;font-size:11px;font-weight:500;color:#475569;text-decoration:none;transition:background .1s,color .1s;}
+.sndrop-item:hover{background:rgba(99,102,241,.09);color:#0f172a;}
+.sndrop-item.current{background:rgba(168,85,247,.08);color:#0f172a;}
+.sndrop-icon{width:24px;height:24px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;}
+.sndrop-lbl{font-weight:600;color:#0f172a;font-size:11px;}
+.sndrop-sub{font-size:10px;color:#94a3b8;margin-top:1px;}
+.sndrop-div{height:1px;background:#e2e8f0;margin:4px 2px;}
+.snav-right{margin-left:auto;display:flex;align-items:center;gap:6px;flex-shrink:0;}
+.snav-badge{padding:4px 12px;border-radius:5px;font-size:11px;font-weight:600;border:1px solid #e2e8f0;color:#475569;text-decoration:none;transition:border-color .12s,color .12s,background .12s;}
+.snav-badge:hover{background:#eef2ff;border-color:#6366f1;color:#6366f1;}
+</style>
+</head>
+<body>
+
+<!-- ── Shared portfolio nav ── -->
+<nav class="snav">
+  <a href="https://ajwalmart12.github.io" class="snav-brand">AJ<span> · Portfolio</span></a>
+  <div class="snav-items">
+    <div class="sndrop">
+      <div class="sndrop-toggle">Dashboards<svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 3.5l3 3 3-3"/></svg></div>
+      <div class="sndrop-menu">
+        <a class="sndrop-item" href="https://ajwalmart12.github.io/forecast-governance/">
+          <div class="sndrop-icon" style="background:rgba(99,102,241,.12)">📊</div>
+          <div><div class="sndrop-lbl">Forecast Governance</div><div class="sndrop-sub">Anomaly triage · Bias correction</div></div>
+        </a>
+        <a class="sndrop-item" href="https://ajwalmart12.github.io/seasonal-planning/">
+          <div class="sndrop-icon" style="background:rgba(245,158,11,.12)">📅</div>
+          <div><div class="sndrop-lbl">Scenario Planning</div><div class="sndrop-sub">Demand scenarios · Commitment staging</div></div>
+        </a>
+        <a class="sndrop-item" href="https://ajwalmart12.github.io/pricing-demand-response/">
+          <div class="sndrop-icon" style="background:rgba(99,102,241,.12)">💹</div>
+          <div><div class="sndrop-lbl">Pricing &amp; Demand Response</div><div class="sndrop-sub">Elasticity · Lift analysis</div></div>
+        </a>
+        <div class="sndrop-div"></div>
+        <a class="sndrop-item" href="https://ajwalmart12.github.io/forecast-accuracy/">
+          <div class="sndrop-icon" style="background:rgba(16,185,129,.12)">🎯</div>
+          <div><div class="sndrop-lbl">Forecast Accuracy</div><div class="sndrop-sub">Bias · sMAPE · Planner adjustments</div></div>
+        </a>
+        <a class="sndrop-item" href="https://ajwalmart12.github.io/replenishment-risk/">
+          <div class="sndrop-icon" style="background:rgba(244,63,94,.12)">⚡</div>
+          <div><div class="sndrop-lbl">Safety Stock Monitor</div><div class="sndrop-sub">Replenishment risk · Violations</div></div>
+        </a>
+        <div class="sndrop-div"></div>
+        <a class="sndrop-item" href="https://ajwalmart12.github.io/shopify-demand-forecasting/">
+          <div class="sndrop-icon" style="background:rgba(16,185,129,.12)">🚚</div>
+          <div><div class="sndrop-lbl">Transportation Forecasting</div><div class="sndrop-sub">SKU velocity · Peak planning</div></div>
+        </a>
+        <a class="sndrop-item" href="https://ajwalmart12.github.io/logitech-supply-planning/">
+          <div class="sndrop-icon" style="background:rgba(245,158,11,.12)">🏭</div>
+          <div><div class="sndrop-lbl">Global Supply Planning</div><div class="sndrop-sub">Safety stock · S&amp;OP · NPI</div></div>
+        </a>
+        <div class="sndrop-div"></div>
+        <a class="sndrop-item current" href="https://ajwalmart12.github.io/npi-launch-planning/">
+          <div class="sndrop-icon" style="background:rgba(168,85,247,.12)">🚀</div>
+          <div><div class="sndrop-lbl">NPI Launch Planning ← current</div><div class="sndrop-sub">CTB · EOL · Material readiness</div></div>
+        </a>
+      </div>
+    </div>
+    <a class="snav-link" href="https://ajwalmart12.github.io#projects">Projects</a>
+    <a class="snav-link" href="https://ajwalmart12.github.io#skills">Skills</a>
+  </div>
+  <div class="snav-right">
+    <a class="snav-badge" href="https://linkedin.com/in/asthajain12" target="_blank">LinkedIn ↗</a>
+    <a class="snav-badge" href="https://github.com/ajwalmart12" target="_blank">GitHub ↗</a>
+  </div>
+</nav>
+
+<div style="background:#f1f5f9;border-bottom:1px solid #e2e8f0;padding:8px 32px;font-size:11px;color:#475569;text-align:center;">
+  <strong>Independent portfolio case study.</strong> All data, product identifiers and results shown here are synthetic. This project does not reproduce any employer's data, systems or confidential business processes.
+</div>
+<div class="demo-banner">
+  <span>⚠ DEMO DATA — Illustrative numbers only.</span>
+  <span class="rs">Production: 15% launch acceleration · $1M E&amp;O reduction · CTB management across quarterly NPI cycles</span>
+</div>
+
+<nav class="tab-nav" id="tabNav">
+  <button class="tab-btn active" data-tab="pipeline">Launch Pipeline</button>
+  <button class="tab-btn" data-tab="ctb">CTB &amp; Material Readiness</button>
+  <button class="tab-btn" data-tab="eol">EOL Wind-Down</button>
+  <button class="tab-btn" data-tab="risk">Supply Risk</button>
+  <button class="tab-btn" data-tab="sop">S&amp;OP Cadence</button>
+</nav>
+
+<main>
+
+<!-- ─── TAB 1: Launch Pipeline ─── -->
+<div id="tab-pipeline" class="tab-panel active">
+
+  <div style="background:#f8f9ff;border-left:3px solid #6366f1;border-radius:8px;padding:16px;margin-bottom:20px;display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+    <div>
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#6366f1;margin-bottom:4px;">Decision</div>
+      <div style="font-size:13px;color:#0f172a;">Which NPI programs need intervention to protect on-time market launch?</div>
+    </div>
+    <div>
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#6366f1;margin-bottom:4px;">Recommendation</div>
+      <div style="font-size:13px;color:#0f172a;">Prioritize DVT acceleration for Prod C and expedite ODM capacity for Prod E; gate remaining programs at PVT with weekly CTB reviews.</div>
+    </div>
+    <div>
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#6366f1;margin-bottom:4px;">Evidence</div>
+      <div style="font-size:13px;color:#0f172a;">4 of 6 programs on track at ≥83% readiness · 2 at-risk programs show CTB gaps in display and battery supply · Historical data: 15% schedule acceleration achieved via parallel-path DVT execution.</div>
+    </div>
+    <div>
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#6366f1;margin-bottom:4px;">Primary Risk</div>
+      <div style="font-size:13px;color:#0f172a;">ODM capacity constrained in Q3; single-source OLED supply creates $1.2M E&amp;O exposure if Prod C misses DVT exit by more than 3 weeks.</div>
+    </div>
+  </div>
+
+  <div class="kpi-row">
+    <div class="kpi bl"><div class="lbl">Active NPIs</div><div class="val">6</div><div class="delta" style="color:var(--muted)">Q3 2026 portfolio</div></div>
+    <div class="kpi gd"><div class="lbl">On Track</div><div class="val">4</div><div class="delta" style="color:var(--good)">↑ 1 vs last week</div></div>
+    <div class="kpi rd"><div class="lbl">At Risk</div><div class="val">2</div><div class="delta" style="color:var(--crit)">Prod C · Prod E</div></div>
+    <div class="kpi or"><div class="lbl">Avg Acceleration</div><div class="val">15%</div><div class="delta" style="color:var(--orange)">vs baseline plan</div></div>
+  </div>
+
+  <div class="chart-grid cols2">
+    <div class="card full">
+      <div class="ttl">NPI Gantt — Launch Phase Timeline (Weeks)</div>
+      <div class="sub2">6 active programs · 5 phases per program. Current week: Wk 14 (red dashed). Transparent offset = pre-program buffer.</div>
+      <canvas id="ganttChart" height="90"></canvas>
+    </div>
+    <div class="card">
+      <div class="ttl">Launch Readiness % by Product</div>
+      <div class="sub2">Composite of CTB sign-off, design freeze, test completion, and regulatory. Target threshold: 85%.</div>
+      <canvas id="readinessChart" height="240"></canvas>
+    </div>
+    <div class="card">
+      <div class="ttl">Program Status — Launch Portfolio</div>
+      <div class="sub2">Current phase, ODM partner, target launch quarter, risk tier</div>
+      <table>
+        <thead><tr><th>Product</th><th>ODM Partner</th><th>Target Date</th><th>Status</th><th>Risk</th><th>Phase</th></tr></thead>
+        <tbody id="statusTable"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ─── TAB 2: CTB & Material Readiness ─── -->
+<div id="tab-ctb" class="tab-panel">
+  <div class="kpi-row">
+    <div class="kpi gd"><div class="lbl">CTB Rate</div><div class="val">84%</div><div class="delta" style="color:var(--good)">↑ 3pp vs last week</div></div>
+    <div class="kpi or"><div class="lbl">At-Risk Components</div><div class="val">23</div><div class="delta" style="color:var(--orange)">Across 5 programs</div></div>
+    <div class="kpi rd"><div class="lbl">Critical Shortages</div><div class="val">4</div><div class="delta" style="color:var(--crit)">Need immediate action</div></div>
+    <div class="kpi bl"><div class="lbl">Avg Lead Time</div><div class="val">14 wks</div><div class="delta" style="color:var(--muted)">Tier 1–3 blended</div></div>
+  </div>
+
+  <div class="chart-grid cols2">
+    <div class="card full">
+      <div class="ttl">Component Readiness by Category — % Ready vs. At-Risk</div>
+      <div class="sub2">Grouped bar: Green = CTB-ready, Orange = at-risk. Target: 100% ready by PVT gate entry.</div>
+      <canvas id="ctbCategoryChart" height="80"></canvas>
+    </div>
+    <div class="card">
+      <div class="ttl">Lead Time Distribution by Supplier Tier</div>
+      <div class="sub2">Average lead time (weeks). Spot buys incur 20–35% premium; Tier 1 preferred for critical-path components.</div>
+      <canvas id="leadTimeChart" height="240"></canvas>
+    </div>
+    <div class="card">
+      <div class="ttl">Critical Component Shortage Register</div>
+      <div class="sub2">Components on critical path with active shortages requiring escalation or redesign</div>
+      <table>
+        <thead><tr><th>Component</th><th>Supplier</th><th>Shortage Units</th><th>Risk</th><th>Action</th></tr></thead>
+        <tbody id="shortageTable"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ─── TAB 3: EOL Wind-Down ─── -->
+<div id="tab-eol" class="tab-panel">
+  <div class="kpi-row">
+    <div class="kpi bl"><div class="lbl">Active EOLs</div><div class="val">3</div><div class="delta" style="color:var(--muted)">Legacy portfolio</div></div>
+    <div class="kpi or"><div class="lbl">Residual Inventory</div><div class="val">$2.1M</div><div class="delta" style="color:var(--orange)">Across 3 products</div></div>
+    <div class="kpi rd"><div class="lbl">E&amp;O Risk</div><div class="val">$380K</div><div class="delta" style="color:var(--crit)">If no action taken</div></div>
+    <div class="kpi gd"><div class="lbl">Avg Wind-Down</div><div class="val">8 wks</div><div class="delta" style="color:var(--good)">On plan</div></div>
+  </div>
+
+  <div class="chart-grid cols2">
+    <div class="card full">
+      <div class="ttl">Inventory Wind-Down Trajectory — 12-Week Horizon ($K)</div>
+      <div class="sub2">Each product line declines to zero by last-order date. Dashed line = aggregate target wind-down path.</div>
+      <canvas id="windDownChart" height="85"></canvas>
+    </div>
+    <div class="card">
+      <div class="ttl">E&amp;O Risk by Product ($K)</div>
+      <div class="sub2">Estimated excess &amp; obsolescence exposure if inventory not cleared by last-order date</div>
+      <canvas id="eoriskChart" height="240"></canvas>
+    </div>
+    <div class="card">
+      <div class="ttl">EOL Action Plan</div>
+      <div class="sub2">Last order date, remaining inventory value, E&amp;O exposure, and active clearance action</div>
+      <table>
+        <thead><tr><th>Product</th><th>Last Order Date</th><th>Inventory Remaining</th><th>E&amp;O Risk</th><th>Action</th></tr></thead>
+        <tbody id="eolTable"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ─── TAB 4: Supply Risk ─── -->
+<div id="tab-risk" class="tab-panel">
+  <div class="kpi-row">
+    <div class="kpi rd"><div class="lbl">High Risk Items</div><div class="val">8</div><div class="delta" style="color:var(--crit)">Require mitigation</div></div>
+    <div class="kpi gd"><div class="lbl">Dual-Sourced</div><div class="val">62%</div><div class="delta" style="color:var(--good)">↑ 8pp vs Q1</div></div>
+    <div class="kpi or"><div class="lbl">Avg Recovery Time</div><div class="val">6 wks</div><div class="delta" style="color:var(--orange)">If disruption occurs</div></div>
+    <div class="kpi yw"><div class="lbl">Risk Score</div><div class="val">34/100</div><div class="delta" style="color:var(--warn)">Moderate exposure</div></div>
+  </div>
+
+  <div class="chart-grid cols2">
+    <div class="card full">
+      <div class="ttl">Supplier Risk Heatmap — Lead Time Variance vs. Supply Dependency</div>
+      <div class="sub2">Bubble size ∝ revenue impact. Color: Red = High risk · Orange = Medium · Green = Low. Upper-right = highest priority for action.</div>
+      <canvas id="riskHeatmap" height="85"></canvas>
+    </div>
+    <div class="card">
+      <div class="ttl">Risk Mitigation Progress — Workstream Completion (%)</div>
+      <div class="sub2">% complete on active mitigation plans. Target: all high-risk items resolved before PVT gate entry.</div>
+      <canvas id="mitigationChart" height="240"></canvas>
+    </div>
+    <div class="card">
+      <div class="ttl">Supply Risk Register</div>
+      <div class="sub2">Active risks by component, type, impact tier, and current mitigation status</div>
+      <table>
+        <thead><tr><th>Component</th><th>Supplier</th><th>Risk Type</th><th>Impact</th><th>Mitigation Status</th></tr></thead>
+        <tbody id="riskTable"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ─── TAB 5: S&OP Cadence ─── -->
+<div id="tab-sop" class="tab-panel">
+  <div class="kpi-row">
+    <div class="kpi bl"><div class="lbl">Review Cadence</div><div class="val">Weekly</div><div class="delta" style="color:var(--muted)">4-week rolling horizon</div></div>
+    <div class="kpi or"><div class="lbl">Stakeholder Groups</div><div class="val">4</div><div class="delta" style="color:var(--orange)">Eng · Finance · Ops · Proc</div></div>
+    <div class="kpi gd"><div class="lbl">Demand-Supply Gap</div><div class="val">&lt;5%</div><div class="delta" style="color:var(--good)">↓ from 8% at program start</div></div>
+    <div class="kpi gd"><div class="lbl">Plan Accuracy</div><div class="val">91%</div><div class="delta" style="color:var(--good)">↑ 12pp since Wk 12</div></div>
+  </div>
+
+  <div class="chart-grid cols2">
+    <div class="card full">
+      <div class="ttl">Demand-Supply Gap — 52-Week Trend (%)</div>
+      <div class="sub2">Gap narrows materially after S&amp;OP cadence deployed at Wk 12. Target: sustain below 5% through launch window.</div>
+      <canvas id="sopGapChart" height="80"></canvas>
+    </div>
+    <div class="card">
+      <div class="ttl">Stakeholder Alignment Score by Group (%)</div>
+      <div class="sub2">Weekly alignment survey across functional groups. Below 80% triggers cross-functional escalation.</div>
+      <canvas id="alignmentChart" height="240"></canvas>
+    </div>
+    <div class="card">
+      <div class="ttl">S&amp;OP Milestone Calendar</div>
+      <div class="sub2">Quarterly NPI cycle milestones, owners, and completion status</div>
+      <table>
+        <thead><tr><th>Week</th><th>Milestone</th><th>Owner</th><th>Status</th></tr></thead>
+        <tbody id="sopTable"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+</main>
+
+<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;margin:20px;">
+  <strong style="font-size:12px;">Assumptions &amp; Limitations</strong>
+  <ul style="margin-top:8px;font-size:12px;color:#52514e;padding-left:18px;">
+    <li>All NPI program data and product identifiers are synthetically generated; no employer-specific program data is used.</li>
+    <li>CTB rates, lead times, and supplier tiers are illustrative; production systems integrate live ERP and procurement data feeds.</li>
+    <li>E&amp;O risk estimates use simplified residual inventory × margin; actual models account for channel mix and salvage value.</li>
+    <li>Supplier risk scores are constructed from public supply-chain risk frameworks and do not reflect any specific company's assessments.</li>
+    <li>S&amp;OP gap and accuracy metrics are illustrative targets; production systems use SKU-level statistical forecasting.</li>
+  </ul>
+</div>
+
+<footer>
+  <span>⚠ Demo data</span>
+  <a href="https://ajwalmart12.github.io" target="_blank">📄 Methodology →</a>
+  <span style="margin-left:auto">Astha Jain · <a href="https://linkedin.com/in/asthajain12" target="_blank">LinkedIn</a></span>
+</footer>
+
+<script>
+const C={blue:'#6366f1',orange:'#eb6834',aqua:'#1baf7a',yellow:'#eda100',magenta:'#e87ba4',good:'#0ca30c',warn:'#fab219',crit:'#d03b3b',purple:'#a855f7',grid:'#e1e0d9',muted:'#898781',text:'#52514e'};
+const base={responsive:true,maintainAspectRatio:true,plugins:{legend:{display:false},tooltip:{backgroundColor:'#fff',borderColor:C.grid,borderWidth:1,titleColor:'#0b0b0b',bodyColor:C.text,padding:10,boxPadding:4}},scales:{x:{grid:{color:C.grid,lineWidth:.5},ticks:{color:C.muted,font:{size:11}}},y:{grid:{color:C.grid,lineWidth:.5},ticks:{color:C.muted,font:{size:11}},border:{dash:[3,3]}}}};
+
+// ──────────────────────────────────────────
+// TAB 1 · Launch Pipeline
+// ──────────────────────────────────────────
+
+// Gantt chart — horizontal stacked bar
+// Products listed bottom-to-top: A at bottom, F at top in array (Chart.js reverses y)
+// Columns: [offset, DesignLock, Proto, DVT, PVT, MPRamp]
+const ganttLabels=['Prod F','Prod E','Prod D','Prod C','Prod B','Prod A'];
+const gOff  = [2, 4, 1, 3, 2, 0];
+const gDL   = [4, 5, 3, 5, 4, 4];   // Design Lock
+const gPro  = [5, 7, 5, 6, 5, 6];   // Proto
+const gDVT  = [5, 7, 5, 6, 5, 6];   // DVT
+const gPVT  = [4, 5, 3, 5, 4, 4];   // PVT
+const gRamp = [4, 5, 3, 4, 4, 4];   // MP Ramp
+
+new Chart(document.getElementById('ganttChart'),{type:'bar',data:{labels:ganttLabels,datasets:[
+  {label:'',           data:gOff, backgroundColor:'transparent',borderWidth:0,stack:'s'},
+  {label:'Design Lock',data:gDL,  backgroundColor:C.blue+'cc',  borderRadius:2,borderSkipped:false,stack:'s'},
+  {label:'Proto',      data:gPro, backgroundColor:C.orange+'cc',borderRadius:2,borderSkipped:false,stack:'s'},
+  {label:'DVT',        data:gDVT, backgroundColor:C.aqua+'cc',  borderRadius:2,borderSkipped:false,stack:'s'},
+  {label:'PVT',        data:gPVT, backgroundColor:C.yellow+'cc',borderRadius:2,borderSkipped:false,stack:'s'},
+  {label:'MP Ramp',    data:gRamp,backgroundColor:C.purple+'cc',borderRadius:2,borderSkipped:false,stack:'s'},
+]},options:{...base,indexAxis:'y',
+  plugins:{...base.plugins,
+    legend:{display:true,labels:{font:{size:11},color:C.text,boxWidth:10,padding:8},filter:item=>item.index!==0},
+    annotation:{annotations:{now:{type:'line',scaleID:'x',value:14,borderColor:C.crit,borderWidth:2,borderDash:[4,3],label:{display:true,content:'Wk 14 · Now',font:{size:10},color:C.crit,position:'start'}}}}},
+  scales:{x:{...base.scales.x,stacked:true,min:0,max:36,title:{display:true,text:'Weeks',font:{size:11},color:C.muted}},y:{...base.scales.y,stacked:true}}}});
+
+// Launch Readiness horizontal bar
+new Chart(document.getElementById('readinessChart'),{type:'bar',data:{
+  labels:['Prod A','Prod B','Prod C','Prod D','Prod E','Prod F'],
+  datasets:[{data:[96,88,72,94,61,83],
+    backgroundColor:[C.good+'cc',C.aqua+'cc',C.crit+'cc',C.good+'cc',C.crit+'cc',C.aqua+'cc'],
+    borderRadius:4,borderSkipped:false}]},
+options:{...base,indexAxis:'y',
+  plugins:{...base.plugins,
+    annotation:{annotations:{tgt:{type:'line',scaleID:'x',value:85,borderColor:C.warn,borderWidth:1.5,borderDash:[4,3],
+      label:{display:true,content:'Target 85%',font:{size:10},color:C.warn,position:'end'}}}}},
+  scales:{x:{...base.scales.x,min:0,max:100,title:{display:true,text:'Readiness %',font:{size:11},color:C.muted}},y:base.scales.y}}});
+
+// Status table
+const statusRows=[
+  {prod:'Prod A',odm:'ODM-Alpha',date:'Q2 2026',status:'On Track',risk:'Low', phase:'DVT'},
+  {prod:'Prod B',odm:'ODM-Beta', date:'Q2 2026',status:'On Track',risk:'Low', phase:'DVT'},
+  {prod:'Prod C',odm:'ODM-Alpha',date:'Q3 2026',status:'At Risk', risk:'High',phase:'Proto'},
+  {prod:'Prod D',odm:'ODM-Gamma',date:'Q1 2026',status:'On Track',risk:'Low', phase:'PVT'},
+  {prod:'Prod E',odm:'ODM-Delta',date:'Q4 2026',status:'At Risk', risk:'High',phase:'Proto'},
+  {prod:'Prod F',odm:'ODM-Beta', date:'Q3 2026',status:'On Track',risk:'Med', phase:'DVT'},
+];
+const stb=document.getElementById('statusTable');
+statusRows.forEach(r=>{
+  const sc=r.status==='On Track'?C.good:C.crit;
+  const rc=r.risk==='High'?C.crit:r.risk==='Med'?C.warn:C.good;
+  stb.innerHTML+=`<tr><td style="font-weight:600">${r.prod}</td><td>${r.odm}</td><td>${r.date}</td><td style="font-weight:600;color:${sc}">${r.status}</td><td style="font-weight:600;color:${rc}">${r.risk}</td><td>${r.phase}</td></tr>`;
+});
+
+// ──────────────────────────────────────────
+// TAB 2 · CTB & Material Readiness
+// ──────────────────────────────────────────
+
+// Component readiness grouped bar
+new Chart(document.getElementById('ctbCategoryChart'),{type:'bar',data:{
+  labels:['PCB','Display','Battery','Housing','Firmware'],
+  datasets:[
+    {label:'% Ready',   data:[78,88,72,95,84],backgroundColor:C.good+'cc',  borderRadius:3,borderSkipped:false},
+    {label:'% At-Risk', data:[22,12,28, 5,16],backgroundColor:C.orange+'cc',borderRadius:3,borderSkipped:false},
+  ]},
+options:{...base,
+  plugins:{...base.plugins,legend:{display:true,labels:{font:{size:11},color:C.text,boxWidth:10,padding:8}}},
+  scales:{x:base.scales.x,y:{...base.scales.y,max:100,title:{display:true,text:'%',font:{size:11},color:C.muted}}}}});
+
+// Lead time horizontal bar
+new Chart(document.getElementById('leadTimeChart'),{type:'bar',data:{
+  labels:['Tier 1','Tier 2','Tier 3','Spot Buy'],
+  datasets:[{data:[8,14,22,28],
+    backgroundColor:[C.good+'cc',C.aqua+'cc',C.warn+'cc',C.crit+'cc'],
+    borderRadius:4,borderSkipped:false}]},
+options:{...base,indexAxis:'y',
+  scales:{x:{...base.scales.x,title:{display:true,text:'Average Lead Time (weeks)',font:{size:11},color:C.muted}},y:base.scales.y}}});
+
+// Shortage table
+const shortageRows=[
+  {comp:'OLED Panel 6.1"',    supp:'SupplierCo A',units:'45,000',risk:'🔴 Critical',action:'Dual-source qualification underway'},
+  {comp:'Li-Po Cell 4500mAh', supp:'SupplierCo B',units:'28,000',risk:'🔴 Critical',action:'Emergency spot buy authorized'},
+  {comp:'RF Module BT5.3',    supp:'SupplierCo C',units:'12,000',risk:'🔴 Critical',action:'Redesign to alternate SKU'},
+  {comp:'PCB Substrate',      supp:'SupplierCo D',units: '8,500',risk:'🟡 Warning', action:'Expedite existing purchase order'},
+  {comp:'Camera ISP Chip',    supp:'SupplierCo E',units: '6,200',risk:'🟡 Warning', action:'Pre-qualify Tier 2 supplier'},
+];
+const shb=document.getElementById('shortageTable');
+shortageRows.forEach(r=>{
+  const rc=r.risk.includes('🔴')?C.crit:C.warn;
+  shb.innerHTML+=`<tr><td>${r.comp}</td><td style="font-size:11px">${r.supp}</td><td style="font-family:monospace">${r.units}</td><td style="font-weight:600;color:${rc}">${r.risk}</td><td style="font-size:11px">${r.action}</td></tr>`;
+});
+
+// ──────────────────────────────────────────
+// TAB 3 · EOL Wind-Down
+// ──────────────────────────────────────────
+
+// Inventory wind-down trajectory (12 weeks, $K)
+const wkLabels=Array.from({length:12},(_,i)=>`Wk ${i+1}`);
+const legA=[1200,1060,920,780,640,500,370,240,130,40,0,0];
+const legB=[ 800, 710,620,530,440,340,255,168,82,20,0,0];
+const legC=[ 600, 512,410,310,218,134, 68, 18,  0, 0,0,0];
+const wdTarget=Array.from({length:12},(_,i)=>Math.round(2100*(1-i/11)));
+
+new Chart(document.getElementById('windDownChart'),{type:'line',data:{labels:wkLabels,datasets:[
+  {label:'Legacy A',   data:legA,    borderColor:C.crit,  backgroundColor:C.crit  +'18',fill:true,borderWidth:2,pointRadius:3,tension:.3},
+  {label:'Legacy B',   data:legB,    borderColor:C.orange,backgroundColor:C.orange+'18',fill:true,borderWidth:2,pointRadius:3,tension:.3},
+  {label:'Legacy C',   data:legC,    borderColor:C.yellow,backgroundColor:C.yellow+'18',fill:true,borderWidth:2,pointRadius:3,tension:.3},
+  {label:'Target Path',data:wdTarget,borderColor:C.muted, borderWidth:1.5,borderDash:[5,4],pointRadius:0,tension:.3},
+]},options:{...base,
+  plugins:{...base.plugins,legend:{display:true,labels:{font:{size:11},color:C.text,boxWidth:10,padding:8}}},
+  scales:{x:base.scales.x,y:{...base.scales.y,title:{display:true,text:'Residual Inventory ($K)',font:{size:11},color:C.muted}}}}});
+
+// E&O risk bar
+new Chart(document.getElementById('eoriskChart'),{type:'bar',data:{
+  labels:['Legacy A','Legacy B','Legacy C'],
+  datasets:[{data:[140,180,60],
+    backgroundColor:[C.crit+'cc',C.warn+'cc',C.good+'cc'],
+    borderRadius:4,borderSkipped:false}]},
+options:{...base,
+  scales:{x:base.scales.x,y:{...base.scales.y,title:{display:true,text:'E&O Risk ($K)',font:{size:11},color:C.muted}}}}});
+
+// EOL action plan table
+const eolRows=[
+  {prod:'Legacy A',lod:'2026-06-30',inv:'$820K',eo:'$140K',action:'Channel clearance push — 3 retail partners'},
+  {prod:'Legacy B',lod:'2026-08-15',inv:'$980K',eo:'$180K',action:'Reseller liquidation program — 40% cleared'},
+  {prod:'Legacy C',lod:'2026-05-30',inv:'$300K',eo:' $60K',action:'Return-to-ODM negotiation in progress'},
+];
+const eolb=document.getElementById('eolTable');
+eolRows.forEach(r=>{
+  eolb.innerHTML+=`<tr><td style="font-weight:600">${r.prod}</td><td>${r.lod}</td><td style="font-family:monospace">${r.inv}</td><td style="font-weight:600;color:var(--crit)">${r.eo}</td><td style="font-size:11px">${r.action}</td></tr>`;
+});
+
+// ──────────────────────────────────────────
+// TAB 4 · Supply Risk
+// ──────────────────────────────────────────
+
+// Supplier risk heatmap (scatter)
+new Chart(document.getElementById('riskHeatmap'),{type:'scatter',data:{datasets:[
+  {label:'High Risk',
+    data:[{x:6.2,y:78},{x:8.1,y:85},{x:5.4,y:71},{x:7.8,y:90}],
+    backgroundColor:C.crit+'bb',pointRadius:16,pointStyle:'circle'},
+  {label:'Med Risk',
+    data:[{x:3.1,y:52},{x:4.2,y:61},{x:3.8,y:44}],
+    backgroundColor:C.warn+'bb',pointRadius:11,pointStyle:'circle'},
+  {label:'Low Risk',
+    data:[{x:1.4,y:28},{x:2.1,y:36},{x:1.8,y:31}],
+    backgroundColor:C.good+'bb',pointRadius:7,pointStyle:'circle'},
+]},options:{...base,
+  plugins:{...base.plugins,legend:{display:true,labels:{font:{size:11},color:C.text,boxWidth:10,padding:8}}},
+  scales:{
+    x:{...base.scales.x,min:0,max:10,title:{display:true,text:'Lead Time Variance (weeks)',font:{size:11},color:C.muted}},
+    y:{...base.scales.y,min:0,max:100,title:{display:true,text:'Supply Dependency (%)',font:{size:11},color:C.muted}}}}});
+
+// Mitigation progress horizontal bar
+new Chart(document.getElementById('mitigationChart'),{type:'bar',data:{
+  labels:['Dual-source qual','Safety stock build','Alt design review','Spot buy auth','PO acceleration','Geo-risk hedge'],
+  datasets:[{data:[72,85,48,100,60,35],
+    backgroundColor:[C.aqua+'cc',C.good+'cc',C.warn+'cc',C.good+'cc',C.aqua+'cc',C.orange+'cc'],
+    borderRadius:4,borderSkipped:false}]},
+options:{...base,indexAxis:'y',
+  plugins:{...base.plugins,
+    annotation:{annotations:{done:{type:'line',scaleID:'x',value:100,borderColor:C.good,borderWidth:1,borderDash:[3,3]}}}},
+  scales:{x:{...base.scales.x,min:0,max:100,title:{display:true,text:'Completion %',font:{size:11},color:C.muted}},y:base.scales.y}}});
+
+// Risk register table
+const riskRows=[
+  {comp:'OLED Panel',   supp:'SupplierCo A',type:'Single source',impact:'Critical',mit:'Dual-source in progress (72%)'},
+  {comp:'Li-Po Cell',   supp:'SupplierCo B',type:'Lead time',    impact:'High',    mit:'Safety stock built (85%)'},
+  {comp:'Custom IC',    supp:'SupplierCo C',type:'Geo risk',     impact:'High',    mit:'Hedge order placed'},
+  {comp:'RF Module',    supp:'SupplierCo D',type:'Capacity',     impact:'Medium',  mit:'PO acceleration active'},
+  {comp:'Housing Tool', supp:'SupplierCo E',type:'Tooling',      impact:'Medium',  mit:'Backup tool ordered'},
+  {comp:'Camera ISP',   supp:'SupplierCo F',type:'Single source',impact:'Medium',  mit:'Qual underway (48%)'},
+];
+const rtb=document.getElementById('riskTable');
+riskRows.forEach(r=>{
+  const ic=r.impact==='Critical'?C.crit:r.impact==='High'?C.orange:C.warn;
+  rtb.innerHTML+=`<tr><td>${r.comp}</td><td style="font-size:11px">${r.supp}</td><td>${r.type}</td><td style="font-weight:600;color:${ic}">${r.impact}</td><td style="font-size:11px">${r.mit}</td></tr>`;
+});
+
+// ──────────────────────────────────────────
+// TAB 5 · S&OP Cadence
+// ──────────────────────────────────────────
+
+// Demand-supply gap 52-week trend
+const sopWks=Array.from({length:52},(_,i)=>`W${i+1}`);
+// Seed deterministic-looking values — no Math.random() so charts are stable on reload
+const sopSeed=[7.8,7.9,7.6,7.8,7.4,7.1,6.8,6.4,6.0,5.7,5.3,4.8,4.4,4.1,3.8,3.6,3.4,3.2,3.1,2.9,2.8,2.7,2.9,2.6,2.5,2.7,2.4,2.6,2.5,2.3,2.6,2.4,2.5,2.3,2.6,2.4,2.2,2.5,2.3,2.1,2.4,2.2,2.5,2.3,2.1,2.4,2.2,2.3,2.1,2.4,2.2,2.0];
+
+new Chart(document.getElementById('sopGapChart'),{type:'line',data:{labels:sopWks,datasets:[
+  {label:'Demand-Supply Gap %',data:sopSeed,borderColor:C.blue,backgroundColor:C.blue+'22',fill:true,borderWidth:2,pointRadius:0,tension:.4},
+]},options:{...base,
+  plugins:{...base.plugins,
+    annotation:{annotations:{
+      deploy:{type:'line',scaleID:'x',value:11,borderColor:C.good,borderWidth:2,borderDash:[4,3],
+        label:{display:true,content:'S&OP cadence deployed (Wk 12)',font:{size:10},color:C.good,position:'start'}},
+      target:{type:'line',scaleID:'y',value:5,borderColor:C.warn,borderWidth:1.5,borderDash:[3,3],
+        label:{display:true,content:'Target 5%',font:{size:10},color:C.warn,position:'end'}}}}},
+  scales:{
+    x:{...base.scales.x,ticks:{maxTicksLimit:13,color:C.muted,font:{size:10}}},
+    y:{...base.scales.y,min:0,max:12,title:{display:true,text:'Gap %',font:{size:11},color:C.muted}}}}});
+
+// Stakeholder alignment horizontal bar
+new Chart(document.getElementById('alignmentChart'),{type:'bar',data:{
+  labels:['Engineering','Finance','Operations','Procurement'],
+  datasets:[{data:[88,92,86,94],
+    backgroundColor:[C.blue+'cc',C.aqua+'cc',C.orange+'cc',C.good+'cc'],
+    borderRadius:4,borderSkipped:false}]},
+options:{...base,indexAxis:'y',
+  plugins:{...base.plugins,
+    annotation:{annotations:{thresh:{type:'line',scaleID:'x',value:80,borderColor:C.crit,borderWidth:1.5,borderDash:[4,3],
+      label:{display:true,content:'Escalation < 80%',font:{size:10},color:C.crit,position:'end'}}}}},
+  scales:{x:{...base.scales.x,min:0,max:100,title:{display:true,text:'Alignment Score %',font:{size:11},color:C.muted}},y:base.scales.y}}});
+
+// S&OP milestone table
+const sopRows=[
+  {wk:'Wk 1', ms:'Demand plan review',         owner:'Sales & Marketing', status:'Complete'},
+  {wk:'Wk 2', ms:'Supply capacity review',      owner:'Operations',        status:'Complete'},
+  {wk:'Wk 3', ms:'Pre-S&OP alignment',          owner:'Planning',          status:'Complete'},
+  {wk:'Wk 4', ms:'Executive S&OP',              owner:'Leadership',        status:'Complete'},
+  {wk:'Wk 8', ms:'Mid-quarter replan',          owner:'All teams',         status:'In Progress'},
+  {wk:'Wk 10',ms:'CTB gate review',             owner:'Procurement & Eng', status:'In Progress'},
+  {wk:'Wk 12',ms:'Launch readiness review',     owner:'NPI team',          status:'Upcoming'},
+  {wk:'Wk 16',ms:'PVT exit gate',               owner:'Engineering',       status:'Upcoming'},
+  {wk:'Wk 20',ms:'MP ramp authorization',       owner:'Operations & Fin',  status:'Upcoming'},
+];
+const sopb=document.getElementById('sopTable');
+sopRows.forEach(r=>{
+  const sc=r.status==='Complete'?C.good:r.status==='In Progress'?C.warn:C.muted;
+  sopb.innerHTML+=`<tr><td style="font-family:monospace;font-size:11px">${r.wk}</td><td>${r.ms}</td><td style="font-size:11px">${r.owner}</td><td style="font-weight:600;color:${sc}">${r.status}</td></tr>`;
+});
+
+// ── Tab switching (same pattern as template) ──
+document.getElementById('tabNav').addEventListener('click',e=>{
+  const btn=e.target.closest('.tab-btn');if(!btn)return;
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
+});
+</script>
+</body>
+</html>
